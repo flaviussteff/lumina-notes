@@ -11,7 +11,7 @@ const Filters = ({
       <input 
         type="text" 
         className="search-input" 
-        placeholder="Search notes by title or content..." 
+        placeholder="Search notes by title, content or description..." 
         value={search}
         onChange={(e) => onSearchChange(e.target.value)}
       />
@@ -20,7 +20,11 @@ const Filters = ({
         <select value={filterType} onChange={(e) => onFilterChange(e.target.value)}>
           <option value="all">All Types</option>
           <option value="text">Text Notes</option>
-          <option value="checkbox">Checklist</option>
+          <option value="checkbox">Checklists</option>
+          <option value="photo">Photos</option>
+          <option value="audio">Audio</option>
+          <option value="video">Videos</option>
+          <option value="drawing">Drawings</option>
         </select>
       </div>
 

@@ -45,15 +45,19 @@ export const StorageService = {
       if (search) {
         const q = search.toLowerCase();
         const inTitle = note.title && note.title.toLowerCase().includes(q);
+        const inDescription = note.description && note.description.toLowerCase().includes(q);
         let inContent = false;
         
         if (note.type === 'text') {
           inContent = note.content && note.content.toLowerCase().includes(q);
         } else if (note.type === 'checkbox') {
           inContent = note.items && note.items.some(item => item.text.toLowerCase().includes(q));
+        } else if (['audio', 'video', 'photo', 'drawing'].includes(note.type)) {
+          // Check attachment names if they exist
+          inContent = note.attachments && note.attachments.some(att => att.name && att.name.toLowerCase().includes(q));
         }
         
-        if (!inTitle && !inContent) return false;
+        if (!inTitle && !inDescription && !inContent) return false;
       }
       return true;
     });

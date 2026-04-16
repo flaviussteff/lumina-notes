@@ -6,9 +6,13 @@ A premium, high-performance Notes Application built with React and Vite. This ap
 
 - **Dynamic Grid View**: Responsive layout with glassmorphic cards and hover effects.
 - **Two Note Types**: Supports both dedicated **Text Notes** and **Checklists**.
-- **Real-time Search**: Search through note titles and content/checklist items.
-- **Advanced Filtering**: Filter by note type (Text/List).
+- **Real-time Search**: Search through note titles, contents, and descriptions.
+- **Advanced Filtering**: Filter by any of the 6 supported note types.
 - **Date-based Sorting**: Sort by "Modified At" or "Created At" dates.
+- **Advanced Media Notes**: Support for Audio, Video, Photo, and Drawing types.
+- **Native Capture**: Record audio/video or snap photos directly in your browser.
+- **Professional Drawing Board**: Full canvas editor with shapes, pencil, and undo/redo.
+- **Multi-Attachment Support**: Attach multiple files to a single note.
 - **Persistence**: Data persists in `localStorage` across browser sessions.
 - **Memory Optimized**: Queries are performed in a mock service layer, returning only the current page view to the UI.
 
