@@ -23,6 +23,10 @@ function App() {
   const [editingNote, setEditingNote] = useState(null);
   const [newNoteType, setNewNoteType] = useState('text');
 
+  // Selection State (Task 3)
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
+
   const fetchNotes = useCallback(async () => {
     setLoading(true);
     try {
@@ -35,9 +39,6 @@ function App() {
         limit
       });
       
-      // If page > 1, we might want to append if we were doing infinite scroll,
-      // but the requirement "only load specific array needed" suggests pagination.
-      // We'll replace the state with the current page's notes.
       setNotes(result.notes);
       setTotalCount(result.totalCount);
     } catch (error) {
@@ -63,6 +64,10 @@ function App() {
   };
 
   const handleEditNote = (note) => {
+    if (isSelectionMode) {
+      toggleSelectNote(note.id);
+      return;
+    }
     setEditingNote(note);
     setIsModalOpen(false); // Close first just in case
     setTimeout(() => {
@@ -72,6 +77,7 @@ function App() {
   };
 
   const handleDeleteNote = async (id) => {
+    if (isSelectionMode) return;
     if (window.confirm('Are you sure you want to delete this note?')) {
       await StorageService.deleteNote(id);
       fetchNotes();
@@ -79,14 +85,97 @@ function App() {
   };
 
   const handleSaveNote = async (noteData) => {
-    await StorageService.saveNote(noteData);
-    setIsModalOpen(false);
-    fetchNotes();
+    try {
+      await StorageService.saveNote(noteData);
+      setIsModalOpen(false);
+      fetchNotes();
+    } catch (error) {
+      console.error('Failed to save note:', error);
+      if (error.name === 'QuotaExceededError' || error.message.includes('quota')) {
+        alert('Storage is full! Your video recording might be too large for the browser (5MB limit). Try deleting some old notes or recording a shorter video.');
+      } else {
+        alert('An unexpected error occurred while saving. Please try again.');
+      }
+    }
+  };
+
+  // Task 3: Selection Handlers
+  const toggleSelectNote = (id) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (selectedIds.length === notes.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(notes.map(n => n.id));
+    }
+  };
+
+  const handleCancelSelection = () => {
+    setIsSelectionMode(false);
+    setSelectedIds([]);
+  };
+
+  const handleExportSelected = async () => {
+    if (selectedIds.length === 0) {
+      alert('Please select at least one note to export.');
+      return;
+    }
+    
+    const data = await StorageService.exportNotes(selectedIds);
+    const jsonString = JSON.stringify(data, null, 2);
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `lumina_notes_export_${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+    
+    URL.revokeObjectURL(url);
+    setIsSelectionMode(false);
+    setSelectedIds([]);
+  };
+
+  const handleImportFile = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const importedData = JSON.parse(event.target.result);
+        if (!Array.isArray(importedData)) {
+          alert('Invalid export file format.');
+          return;
+        }
+        
+        const summary = await StorageService.importNotes(importedData);
+        alert(`Import Complete!\n- New: ${summary.imported}\n- Updated: ${summary.updated}\n- Skipped: ${summary.skipped}`);
+        fetchNotes();
+      } catch (err) {
+        console.error('Import failed:', err);
+        alert('Failed to parse the import file. Make sure it is a valid Lumina Notes export.');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = ''; // Reset input
   };
 
   return (
     <div className="app-container">
-      <Header onCreateNote={handleCreateNote} />
+      <Header 
+        onCreateNote={handleCreateNote} 
+        isSelectionMode={isSelectionMode}
+        setIsSelectionMode={setIsSelectionMode}
+        onExportSelected={handleExportSelected}
+        onImportFile={handleImportFile}
+        onSelectAll={handleSelectAll}
+        selectedCount={selectedIds.length}
+      />
       
       <Filters 
         search={search} onSearchChange={setSearch}
@@ -100,6 +189,9 @@ function App() {
         loading={loading} 
         onEdit={handleEditNote} 
         onDelete={handleDeleteNote}
+        isSelectionMode={isSelectionMode}
+        selectedIds={selectedIds}
+        onToggleSelect={toggleSelectNote}
       />
 
       {totalCount > notes.length && (

@@ -2,19 +2,37 @@ import React, { useState, useRef, useEffect } from 'react';
 
 const MediaCapture = ({ type, onCapture }) => {
   const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
   const [stream, setStream] = useState(null);
   const [isReady, setIsReady] = useState(false);
+  
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
   const videoRef = useRef(null);
+  const timerRef = useRef(null);
 
-  // Sync stream to video element once it's rendered
+  // Sync stream to video element
   useEffect(() => {
     if (stream && videoRef.current && (type === 'video' || type === 'photo')) {
       videoRef.current.srcObject = stream;
       videoRef.current.play().catch(e => console.error("Playback failed", e));
     }
   }, [stream, type]);
+
+  // Recording Timer
+  useEffect(() => {
+    if (isRecording) {
+      timerRef.current = setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
+    } else {
+      clearInterval(timerRef.current);
+      setRecordingTime(0);
+    }
+    return () => clearInterval(timerRef.current);
+  }, [isRecording]);
+
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const startStream = async () => {
     setIsReady(false);
@@ -41,34 +59,64 @@ const MediaCapture = ({ type, onCapture }) => {
 
   const startRecording = () => {
     chunksRef.current = [];
-    const options = { mimeType: type === 'video' ? 'video/webm' : 'audio/webm' };
-    const recorder = new MediaRecorder(stream, options);
     
-    recorder.ondataavailable = (e) => {
-      if (e.data.size > 0) chunksRef.current.push(e.data);
-    };
+    // Find best MIME type
+    const mimeTypes = [
+      'video/mp4',
+      'video/webm;codecs=vp9,opus',
+      'video/webm;codecs=vp8,opus',
+      'video/webm',
+      'audio/mp4',
+      'audio/webm',
+      'audio/ogg'
+    ];
+    
+    let selectedMime = '';
+    for (const m of mimeTypes) {
+      if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(m)) {
+        if (m.startsWith(type === 'video' ? 'video' : 'audio')) {
+          selectedMime = m;
+          break;
+        }
+      }
+    }
+    
+    if (!selectedMime) selectedMime = type === 'video' ? 'video/webm' : 'audio/webm';
 
-    recorder.onstop = () => {
-      const blob = new Blob(chunksRef.current, { type: recorder.mimeType });
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        onCapture({
-          id: crypto.randomUUID(),
-          name: `${type}-${Date.now()}.${type === 'video' ? 'webm' : 'webm'}`,
-          data: reader.result,
-          type: blob.type
-        });
+    try {
+      const recorder = new MediaRecorder(stream, { mimeType: selectedMime });
+      
+      recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) chunksRef.current.push(e.data);
       };
-      reader.readAsDataURL(blob);
-    };
 
-    recorder.start();
-    mediaRecorderRef.current = recorder;
-    setIsRecording(true);
+      recorder.onstop = () => {
+        setIsProcessing(true);
+        const blob = new Blob(chunksRef.current, { type: selectedMime });
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          onCapture({
+            id: crypto.randomUUID ? crypto.randomUUID() : `rec-${Date.now()}`,
+            name: `${type}-${Date.now()}.${selectedMime.includes('mp4') ? 'mp4' : 'webm'}`,
+            data: reader.result,
+            type: selectedMime
+          });
+          setIsProcessing(false);
+        };
+        reader.readAsDataURL(blob);
+      };
+
+      recorder.start(100); // Capture chunks every 100ms
+      mediaRecorderRef.current = recorder;
+      setIsRecording(true);
+    } catch (err) {
+      console.error("Recording failed", err);
+      alert("Recording failed to start. Browser format mismatch.");
+    }
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current) {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
       stopStream();
@@ -76,60 +124,62 @@ const MediaCapture = ({ type, onCapture }) => {
   };
 
   const capturePhoto = () => {
-    if (!videoRef.current || !isReady || videoRef.current.videoWidth === 0) {
-      alert('Camera initializing... please wait 1-2 seconds.');
-      return;
-    }
+    if (!videoRef.current || videoRef.current.videoWidth === 0) return;
 
     const canvas = document.createElement('canvas');
-    // Scale down for storage efficiency and to avoid "corruption" from huge strings
-    const MAX_WIDTH = 1024;
-    const scale = Math.min(1, MAX_WIDTH / videoRef.current.videoWidth);
+    const MAX_DIM = 1200;
+    const scale = Math.min(1, MAX_DIM / Math.max(videoRef.current.videoWidth, videoRef.current.videoHeight));
+    
     canvas.width = videoRef.current.videoWidth * scale;
     canvas.height = videoRef.current.videoHeight * scale;
     
     const ctx = canvas.getContext('2d');
     ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
     
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.8); // Use JPEG for better compression
     onCapture({
-      id: crypto.randomUUID(),
+      id: crypto.randomUUID ? crypto.randomUUID() : `photo-${Date.now()}`,
       name: `photo-${Date.now()}.jpg`,
-      data: dataUrl,
+      data: canvas.toDataURL('image/jpeg', 0.85),
       type: 'image/jpeg'
     });
     stopStream();
   };
 
-  const handleFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      onCapture({
-        id: crypto.randomUUID(),
-        name: file.name,
-        data: reader.result,
-        type: file.type
-      });
-    };
-    reader.readAsDataURL(file);
-  };
+  const formatTime = (s) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 
   return (
     <div className="media-manager">
       <div className="capture-container">
-        {type !== 'audio' && stream && (
-          <video 
-            ref={videoRef} 
-            className="video-preview" 
-            autoPlay 
-            muted 
-            playsInline 
-            onLoadedMetadata={() => setIsReady(true)}
-            onCanPlay={() => setIsReady(true)}
-          />
+        {type !== 'audio' && stream ? (
+          <div className="capture-viewport">
+            <video 
+              ref={videoRef} 
+              autoPlay 
+              muted 
+              playsInline 
+              onLoadedMetadata={() => setIsReady(true)}
+              style={{width: '100%', height: '100%', objectFit: 'cover'}}
+            />
+            {isRecording && (
+              <div className="recording-status">
+                <span className="rec-dot"></span>
+                <span>{formatTime(recordingTime)}</span>
+              </div>
+            )}
+          </div>
+        ) : type === 'audio' && isRecording ? (
+          <div className="audio-visualizer">
+            <div className="pulse-circle"></div>
+            <p>Recording... {formatTime(recordingTime)}</p>
+          </div>
+        ) : isProcessing ? (
+          <div className="processing-indicator" style={{ textAlign: 'center', padding: '1rem', background: 'var(--bg-primary)', borderRadius: '8px', width: '100%' }}>
+            <p>⏳ Finalizing recording... please wait.</p>
+          </div>
+        ) : !stream && (
+          <div className="capture-placeholder" style={{padding: '2rem', textAlign: 'center', opacity: 0.5}}>
+             {type === 'audio' ? '🎙️ Ready to record' : type === 'photo' ? '📸 Ready to capture' : '🎥 Ready to film'}
+          </div>
         )}
         
         <div className="header-actions">
@@ -138,28 +188,40 @@ const MediaCapture = ({ type, onCapture }) => {
               {type === 'photo' ? 'Open Camera' : `Access ${type === 'video' ? 'Camera' : 'Mic'}`}
             </button>
           ) : (
-            <>
+            <div className="active-controls">
               {type === 'photo' ? (
-                <button type="button" className="btn btn-primary" onClick={capturePhoto}>📸 Capture Photo</button>
+                <button type="button" className="btn btn-primary" onClick={capturePhoto} disabled={!isReady}>📸 Save Photo Note</button>
               ) : (
                 !isRecording ? (
                   <button type="button" className="btn btn-primary" onClick={startRecording}>🔴 Start Recording</button>
                 ) : (
-                  <button type="button" className="btn btn-danger" onClick={stopRecording}>⬛ Stop Recording</button>
+                  <button type="button" className="btn btn-danger" onClick={stopRecording}>⬛ Stop & Save Note</button>
                 )
               )}
               <button type="button" className="btn btn-secondary" onClick={stopStream}>Cancel</button>
-            </>
+            </div>
           )}
         </div>
 
-        <div style={{marginTop: '1rem', textAlign: 'center'}}>
+        <div className="file-upload-section">
           <p className="text-muted">Or upload a file:</p>
           <input 
             type="file" 
             accept={`${type}/*`} 
-            onChange={handleFileUpload}
-            style={{marginTop: '0.5rem'}}
+            onChange={(e) => {
+              const file = e.target.files[0];
+              if (!file) return;
+              const reader = new FileReader();
+              reader.onloadend = () => {
+                onCapture({
+                  id: crypto.randomUUID ? crypto.randomUUID() : `file-${Date.now()}`,
+                  name: file.name,
+                  data: reader.result,
+                  type: file.type
+                });
+              };
+              reader.readAsDataURL(file);
+            }}
           />
         </div>
       </div>

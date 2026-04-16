@@ -2,28 +2,44 @@ import React from 'react';
 
 const AttachmentList = ({ attachments, onDelete }) => {
   const downloadFile = (attachment) => {
-    // Attempt to open in a new tab for direct viewing
-    const win = window.open();
-    if (win) {
-      win.document.write(`
-        <html>
-          <head><title>${attachment.name}</title></head>
-          <body style="margin:0; background: #0f1115; display:flex; align-items:center; justify-content:center;">
-            ${attachment.type.startsWith('image/') ? `<img src="${attachment.data}" style="max-width:100%; max-height:100%; object-fit:contain;" />` : 
-              attachment.type.startsWith('video/') ? `<video src="${attachment.data}" controls style="max-width:100%; max-height:100%;" />` :
-              `<embed src="${attachment.data}" width="100%" height="100%" />`}
-          </body>
-        </html>
-      `);
-      win.document.close();
-    } else {
-      // Fallback: standard download
+    // Helper to convert base64 to blob for stable viewing/downloading
+    const base64ToBlob = (base64, mime) => {
+      const parts = base64.split(',');
+      const byteString = atob(parts[1]);
+      const ab = new ArrayBuffer(byteString.length);
+      const ia = new Uint8Array(ab);
+      for (let i = 0; i < byteString.length; i++) {
+        ia[i] = byteString.charCodeAt(i);
+      }
+      return new Blob([ab], { type: mime || 'application/octet-stream' });
+    };
+
+    try {
+      const blob = base64ToBlob(attachment.data, attachment.type);
+      const url = URL.createObjectURL(blob);
+      
+      // Attempt to open in a new tab for direct viewing
+      const win = window.open(url, '_blank');
+      
+      if (!win) {
+        // Fallback: standard download if popup is blocked
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = attachment.name;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+      
+      // Cleanup the URL after 1 minute
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (err) {
+      console.error("Viewing failed", err);
+      // Fallback: simple data URL download
       const link = document.createElement('a');
       link.href = attachment.data;
       link.download = attachment.name;
-      document.body.appendChild(link);
       link.click();
-      document.body.removeChild(link);
     }
   };
 

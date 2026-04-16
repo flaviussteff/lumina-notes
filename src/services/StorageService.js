@@ -105,7 +105,7 @@ export const StorageService = {
       // Create new note
       const newNote = {
         ...noteData,
-        id: crypto.randomUUID(),
+        id: (crypto && crypto.randomUUID) ? crypto.randomUUID() : `note-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         createdAt: now,
         modifiedAt: now
       };
@@ -122,5 +122,63 @@ export const StorageService = {
     allNotes = allNotes.filter(n => n.id !== id);
     this._saveAll(allNotes);
     return true;
+  },
+
+  /**
+   * Task 3: Export specific notes by ID
+   */
+  async exportNotes(ids) {
+    await this._delay();
+    const allNotes = this._getAll();
+    const toExport = allNotes.filter(n => ids.includes(n.id));
+    return toExport;
+  },
+
+  /**
+   * Task 3: Import notes with collision detection
+   * Returns a summary of the results.
+   */
+  async importNotes(importedNotes) {
+    await this._delay();
+    const localNotes = this._getAll();
+    const summary = { imported: 0, updated: 0, skipped: 0 };
+
+    const forceUUID = () => (crypto && crypto.randomUUID) ? crypto.randomUUID() : `note-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    importedNotes.forEach(impNote => {
+      // Unified match logic: Match by ID first, then by Title + Type
+      const existingById = localNotes.find(n => n.id === impNote.id);
+      const existingByTitle = localNotes.find(n => n.title === impNote.title && n.type === impNote.type);
+      const match = existingById || existingByTitle;
+
+      if (match) {
+        // Any difference in title or content counts as an update
+        const hasChanges = 
+          match.title !== impNote.title ||
+          match.description !== impNote.description ||
+          JSON.stringify(match.items) !== JSON.stringify(impNote.items) ||
+          JSON.stringify(match.attachments) !== JSON.stringify(impNote.attachments);
+        
+        const isNewer = new Date(impNote.modifiedAt || 0).getTime() > new Date(match.modifiedAt || 0).getTime();
+
+        if (hasChanges || isNewer) {
+          // Preserve the original local ID if we matched by Title only
+          const targetId = match.id;
+          Object.assign(match, impNote);
+          if (!existingById) match.id = targetId;
+          
+          summary.updated++;
+        } else {
+          summary.skipped++;
+        }
+      } else {
+        // Truly New
+        localNotes.unshift({ ...impNote });
+        summary.imported++;
+      }
+    });
+
+    this._saveAll(localNotes);
+    return summary;
   }
 };

@@ -1,7 +1,7 @@
 import React from 'react';
 import NoteCard from './NoteCard';
 
-const NoteGrid = ({ notes, loading, onEdit, onDelete }) => {
+const NoteGrid = ({ notes, loading, onEdit, onDelete, isSelectionMode, selectedIds, onToggleSelect }) => {
   if (loading && notes.length === 0) {
     return (
       <div className="empty-state">
@@ -27,7 +27,10 @@ const NoteGrid = ({ notes, loading, onEdit, onDelete }) => {
           key={note.id} 
           note={note} 
           onEdit={onEdit} 
-          onDelete={onDelete} 
+          onDelete={onDelete}
+          isSelectionMode={isSelectionMode}
+          isSelected={selectedIds.includes(note.id)}
+          onToggleSelect={() => onToggleSelect(note.id)}
         />
       ))}
     </div>

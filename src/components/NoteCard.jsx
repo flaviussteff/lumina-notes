@@ -1,6 +1,6 @@
 import React from 'react';
 
-const NoteCard = ({ note, onEdit, onDelete }) => {
+const NoteCard = ({ note, onEdit, onDelete, isSelectionMode, isSelected, onToggleSelect }) => {
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString(undefined, {
       month: 'short',
@@ -9,6 +9,14 @@ const NoteCard = ({ note, onEdit, onDelete }) => {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  const handleClick = () => {
+    if (isSelectionMode) {
+      onToggleSelect();
+    } else {
+      onEdit(note);
+    }
   };
 
   const renderPreview = () => {
@@ -46,7 +54,10 @@ const NoteCard = ({ note, onEdit, onDelete }) => {
           <div className="note-attachment-grid">
             {note.attachments.slice(0, 2).map((att, i) => (
               <div key={i} className="mini-preview">
-                {note.type === 'audio' ? '🎵' : <img src={att.data} alt="thumb" />}
+                {note.type === 'audio' ? '🎵' : 
+                 note.type === 'video' ? '🎥' : 
+                 note.type === 'drawing' ? <img src={att.data} alt="thumb" /> :
+                 <img src={att.data} alt="thumb" />}
               </div>
             ))}
             {typeCount > 2 && <div className="mini-preview-more">+{typeCount - 2}</div>}
@@ -64,7 +75,13 @@ const NoteCard = ({ note, onEdit, onDelete }) => {
   };
 
   return (
-    <div className="note-card" onClick={() => onEdit(note)}>
+    <div className={`note-card ${isSelected ? 'selected' : ''}`} onClick={handleClick}>
+      {isSelectionMode && (
+        <div className="selection-indicator">
+          {isSelected ? '✅' : '⚪'}
+        </div>
+      )}
+      
       <div className="note-header">
         <h3 className="note-title">{note.title || 'Untitled'}</h3>
         <span className="note-type-badge">{note.type}</span>
@@ -79,17 +96,19 @@ const NoteCard = ({ note, onEdit, onDelete }) => {
           <p>Created: {formatDate(note.createdAt)}</p>
           <p>Modified: {formatDate(note.modifiedAt)}</p>
         </div>
-        <div className="note-actions">
-          <button 
-            className="btn-danger" 
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete(note.id);
-            }}
-          >
-            Delete
-          </button>
-        </div>
+        {!isSelectionMode && (
+          <div className="note-actions">
+            <button 
+              className="btn-danger" 
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(note.id);
+              }}
+            >
+              Delete
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

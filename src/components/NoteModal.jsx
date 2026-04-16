@@ -11,6 +11,8 @@ const NoteModal = ({ isOpen, onClose, onSave, note, defaultType }) => {
   const [attachments, setAttachments] = useState([]);
   const [type, setType] = useState(defaultType);
 
+  const [isSaving, setIsSaving] = useState(false);
+
   useEffect(() => {
     if (note) {
       setTitle(note.title || '');
@@ -31,6 +33,7 @@ const NoteModal = ({ isOpen, onClose, onSave, note, defaultType }) => {
       setItems([]);
       setAttachments([]);
     }
+    setIsSaving(false);
   }, [note, defaultType, isOpen]);
 
   const handleAddAttachment = (attachment) => {
@@ -61,21 +64,49 @@ const NoteModal = ({ isOpen, onClose, onSave, note, defaultType }) => {
     setItems(items.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  const handleSubmit = async (e) => {
+    if (e) e.preventDefault();
+    if (isSaving) return;
+    
+    setIsSaving(true);
     const noteData = {
       id: note?.id,
-      title,
+      title: title || `${type.charAt(0).toUpperCase() + type.slice(1)} Note`,
       description,
       type,
       ...(type === 'text' ? { content } : {}),
       ...(type === 'checkbox' ? { items } : {}),
       ...(['audio', 'video', 'photo', 'drawing'].includes(type) ? { attachments } : {})
     };
-    onSave(noteData);
+    
+    try {
+      await onSave(noteData);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   if (!isOpen) return null;
+
+  const handleAutoSave = async (newAttachment) => {
+    if (isSaving) return;
+    setIsSaving(true);
+    
+    // Create current data snapshot
+    const noteData = {
+      id: note?.id,
+      title: title || `${type.charAt(0).toUpperCase() + type.slice(1)} Note`,
+      description,
+      type,
+      attachments: [...attachments, newAttachment]
+    };
+    
+    try {
+      await onSave(noteData);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const renderEditor = () => {
     switch (type) {
@@ -88,6 +119,7 @@ const NoteModal = ({ isOpen, onClose, onSave, note, defaultType }) => {
               placeholder="Start writing..."
               value={content}
               onChange={(e) => setContent(e.target.value)}
+              disabled={isSaving}
             />
           </div>
         );
@@ -98,17 +130,18 @@ const NoteModal = ({ isOpen, onClose, onSave, note, defaultType }) => {
             <div className="checklist-editor">
               {items.map((item, index) => (
                 <div key={index} className="checklist-editor-item">
-                  <input type="checkbox" checked={item.checked} onChange={() => handleToggleItem(index)} />
+                  <input type="checkbox" checked={item.checked} onChange={() => handleToggleItem(index)} disabled={isSaving} />
                   <input 
                     type="text" 
                     value={item.text}
                     onChange={(e) => handleUpdateItem(index, e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddItem())}
+                    disabled={isSaving}
                   />
-                  <button type="button" className="text-danger" onClick={() => handleRemoveItem(index)}>Remove</button>
+                  <button type="button" className="text-danger" onClick={() => handleRemoveItem(index)} disabled={isSaving}>Remove</button>
                 </div>
               ))}
-              <button type="button" className="btn btn-secondary" onClick={handleAddItem}>+ Add Item</button>
+              <button type="button" className="btn btn-secondary" onClick={handleAddItem} disabled={isSaving}>+ Add Item</button>
             </div>
           </div>
         );
@@ -116,7 +149,7 @@ const NoteModal = ({ isOpen, onClose, onSave, note, defaultType }) => {
         return (
           <div className="form-group">
             <label className="form-label">Canvas</label>
-            <DrawingBoard onSave={handleAddAttachment} />
+            <DrawingBoard onSave={handleAutoSave} />
             <AttachmentList attachments={attachments} onDelete={handleDeleteAttachment} />
           </div>
         );
@@ -126,7 +159,7 @@ const NoteModal = ({ isOpen, onClose, onSave, note, defaultType }) => {
         return (
           <div className="form-group">
             <label className="form-label">{type.charAt(0).toUpperCase() + type.slice(1)} Attachments</label>
-            <MediaCapture type={type} onCapture={handleAddAttachment} />
+            <MediaCapture type={type} onCapture={handleAutoSave} />
             <AttachmentList attachments={attachments} onDelete={handleDeleteAttachment} />
           </div>
         );
@@ -136,15 +169,27 @@ const NoteModal = ({ isOpen, onClose, onSave, note, defaultType }) => {
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={isSaving ? undefined : onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>{note ? 'Edit Note' : `Create New ${type.charAt(0).toUpperCase() + type.slice(1)}`}</h2>
-          <button className="btn-secondary" onClick={onClose}>✕</button>
+          <button className="btn-secondary" onClick={onClose} disabled={isSaving}>✕</button>
         </div>
         
         <form onSubmit={handleSubmit}>
-          <div className="modal-body">
+          <div className="modal-body" style={{ opacity: isSaving ? 0.6 : 1, pointerEvents: isSaving ? 'none' : 'auto' }}>
+            {isSaving && (
+              <div className="saving-overlay" style={{
+                position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                background: 'rgba(0,0,0,0.1)', zIndex: 100,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontWeight: 'bold', borderRadius: 'inherit'
+              }}>
+                <div className="saving-card" style={{ background: 'var(--bg-secondary)', padding: '1rem 2rem', borderRadius: '12px', boxShadow: 'var(--shadow-xl)' }}>
+                  ⏳ Saving Note...
+                </div>
+              </div>
+            )}
             <div className="form-group">
               <label className="form-label">Title</label>
               <input 
@@ -153,6 +198,7 @@ const NoteModal = ({ isOpen, onClose, onSave, note, defaultType }) => {
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 autoFocus
+                disabled={isSaving}
               />
             </div>
 
@@ -163,6 +209,7 @@ const NoteModal = ({ isOpen, onClose, onSave, note, defaultType }) => {
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={2}
+                disabled={isSaving}
               />
             </div>
 
@@ -170,8 +217,10 @@ const NoteModal = ({ isOpen, onClose, onSave, note, defaultType }) => {
           </div>
 
           <div className="modal-footer">
-            <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn btn-primary">{note ? 'Save Changes' : 'Create Note'}</button>
+            <button type="button" className="btn btn-secondary" onClick={onClose} disabled={isSaving}>Cancel</button>
+            <button type="submit" className="btn btn-primary" disabled={isSaving}>
+              {isSaving ? 'Processing...' : (note ? 'Save Changes' : 'Create Note')}
+            </button>
           </div>
         </form>
       </div>
