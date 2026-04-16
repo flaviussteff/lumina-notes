@@ -8,6 +8,14 @@ const MediaCapture = ({ type, onCapture }) => {
   const chunksRef = useRef([]);
   const videoRef = useRef(null);
 
+  // Sync stream to video element once it's rendered
+  useEffect(() => {
+    if (stream && videoRef.current && (type === 'video' || type === 'photo')) {
+      videoRef.current.srcObject = stream;
+      videoRef.current.play().catch(e => console.error("Playback failed", e));
+    }
+  }, [stream, type]);
+
   const startStream = async () => {
     setIsReady(false);
     try {
@@ -17,11 +25,6 @@ const MediaCapture = ({ type, onCapture }) => {
       };
       const newStream = await navigator.mediaDevices.getUserMedia(constraints);
       setStream(newStream);
-      if (videoRef.current && (type === 'video' || type === 'photo')) {
-        videoRef.current.srcObject = newStream;
-        // Explicitly call play to handle some browser policies
-        videoRef.current.play().catch(e => console.error("Playback failed", e));
-      }
     } catch (err) {
       console.error('Error accessing media devices:', err);
       alert('Could not access camera/microphone. Please check permissions.');
