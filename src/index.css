@@ -297,9 +297,67 @@ input:focus, textarea:focus, select:focus {
   color: var(--text-muted);
 }
 
-.note-actions {
+.note-attachment-grid {
   display: flex;
   gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.mini-preview {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  font-size: 1.2rem;
+}
+
+.mini-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mini-preview-more {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  background: var(--bg-tertiary);
+  border: 1px dashed var(--border-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.note-description-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.attachment-count-tag {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--accent-primary);
+  letter-spacing: 0.05em;
+}
+
+.description-text {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 /* Modal / Editor Overlay */
@@ -343,6 +401,7 @@ input:focus, textarea:focus, select:focus {
 .modal-body {
   padding: 1.5rem;
   overflow-y: auto;
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
@@ -451,7 +510,7 @@ input:focus, textarea:focus, select:focus {
   overflow: hidden;
   cursor: crosshair;
   width: 100%;
-  height: 400px;
+  height: min(400px, 50vh);
 }
 
 .canvas-container canvas {
@@ -528,13 +587,20 @@ input:focus, textarea:focus, select:focus {
 
 .attachment-preview {
   width: 100%;
-  height: 80px;
+  height: 120px;
   object-fit: cover;
-  border-radius: 4px;
+  border-radius: 6px;
   background: var(--bg-primary);
   display: flex;
   align-items: center;
   justify-content: center;
+  border: 1px solid var(--border-light);
+  transition: transform 0.2s, border-color 0.2s;
+}
+
+.attachment-item:hover .attachment-preview {
+  border-color: var(--accent-primary);
+  transform: translateY(-2px);
 }
 
 .attachment-name {

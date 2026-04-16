@@ -17,7 +17,7 @@ const DrawingBoard = ({ onSave }) => {
   const [startPos, setStartPos] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
-    const canvas = canvasRef.getcurrent();
+    const canvas = canvasRef.current;
     canvas.width = canvas.offsetWidth * 2;
     canvas.height = canvas.offsetHeight * 2;
     canvas.style.width = `${canvas.offsetWidth}px`;
@@ -160,12 +160,14 @@ const DrawingBoard = ({ onSave }) => {
       <div className="drawing-toolbar">
         <div className="tool-group">
           <button 
+            type="button"
             className={`btn ${tool === 'pencil' ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => setTool('pencil')} title="Pencil"
           >
             ✏️
           </button>
           <button 
+            type="button"
             className={`btn ${tool === 'eraser' ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => setTool('eraser')} title="Eraser"
           >
@@ -175,18 +177,21 @@ const DrawingBoard = ({ onSave }) => {
 
         <div className="tool-group">
           <button 
+            type="button"
             className={`btn ${tool === 'line' ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => setTool('line')} title="Line"
           >
             /
           </button>
           <button 
+            type="button"
             className={`btn ${tool === 'rectangle' ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => setTool('rectangle')} title="Rectangle"
           >
             ▭
           </button>
           <button 
+            type="button"
             className={`btn ${tool === 'circle' ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => setTool('circle')} title="Circle"
           >
@@ -210,16 +215,16 @@ const DrawingBoard = ({ onSave }) => {
         </div>
 
         <div className="tool-group">
-          <button className="btn btn-secondary" onClick={undo} disabled={historyIndex <= 0}>↩️</button>
-          <button className="btn btn-secondary" onClick={redo} disabled={historyIndex >= history.length - 1}>↪️</button>
-          <button className="btn btn-danger" onClick={() => {
+          <button type="button" className="btn btn-secondary" onClick={undo} disabled={historyIndex <= 0}>↩️</button>
+          <button type="button" className="btn btn-secondary" onClick={redo} disabled={historyIndex >= history.length - 1}>↪️</button>
+          <button type="button" className="btn btn-danger" onClick={() => {
             contextRef.current.fillStyle = 'white';
             contextRef.current.fillRect(0, 0, canvasRef.current.width, canvasRef.current.height);
             saveState();
           }}>🗑️</button>
         </div>
         
-        <button className="btn btn-primary" onClick={handleExport} style={{marginLeft: 'auto'}}>
+        <button type="button" className="btn btn-primary" onClick={handleExport} style={{marginLeft: 'auto'}}>
           Add to Note
         </button>
       </div>

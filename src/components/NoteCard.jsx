@@ -35,23 +35,27 @@ const NoteCard = ({ note, onEdit, onDelete }) => {
     }
 
     // Media and Drawing Previews
-    if (['audio', 'video', 'photo', 'drawing'].includes(note.type) && note.attachments?.length > 0) {
-      const firstAtt = note.attachments[0];
+    const hasAttachments = ['audio', 'video', 'photo', 'drawing'].includes(note.type) && note.attachments?.length > 0;
+    
+    if (hasAttachments) {
+      const typeCount = note.attachments.length;
+      const typeLabel = note.type === 'drawing' ? 'Drawing' : note.type.charAt(0).toUpperCase() + note.type.slice(1);
+      
       return (
         <div className="note-media-preview">
-          {note.type === 'audio' ? (
-            <div className="attachment-preview" style={{width: '100%', height: '60px', borderRadius: '8px'}}>🎵 Audio Recording</div>
-          ) : (
-            <img src={firstAtt.data} alt="Preview" className="attachment-preview" style={{width: '100%', height: '100px', objectFit: 'cover', borderRadius: '8px'}} />
-          )}
-          {note.description && (
-            <p style={{fontSize: '0.85rem', marginTop: '0.5rem', color: 'var(--text-secondary)'}}>
-              {note.description}
-            </p>
-          )}
-          {note.attachments.length > 1 && (
-            <span style={{fontSize: '0.75rem', opacity: 0.5}}>+{note.attachments.length - 1} more files</span>
-          )}
+          <div className="note-attachment-grid">
+            {note.attachments.slice(0, 2).map((att, i) => (
+              <div key={i} className="mini-preview">
+                {note.type === 'audio' ? '🎵' : <img src={att.data} alt="thumb" />}
+              </div>
+            ))}
+            {typeCount > 2 && <div className="mini-preview-more">+{typeCount - 2}</div>}
+          </div>
+          
+          <div className="note-description-summary">
+            <span className="attachment-count-tag">{typeCount} {typeLabel}{typeCount > 1 ? 's' : ''}</span>
+            {note.description && <p className="description-text">{note.description}</p>}
+          </div>
         </div>
       );
     }

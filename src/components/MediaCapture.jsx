@@ -3,12 +3,13 @@ import React, { useState, useRef, useEffect } from 'react';
 const MediaCapture = ({ type, onCapture }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [stream, setStream] = useState(null);
-  const [previewUrl, setPreviewUrl] = useState(null);
+  const [isReady, setIsReady] = useState(false);
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
   const videoRef = useRef(null);
 
   const startStream = async () => {
+    setIsReady(false);
     try {
       const constraints = {
         audio: true,
@@ -18,6 +19,8 @@ const MediaCapture = ({ type, onCapture }) => {
       setStream(newStream);
       if (videoRef.current && (type === 'video' || type === 'photo')) {
         videoRef.current.srcObject = newStream;
+        // Explicitly call play to handle some browser policies
+        videoRef.current.play().catch(e => console.error("Playback failed", e));
       }
     } catch (err) {
       console.error('Error accessing media devices:', err);
@@ -30,6 +33,7 @@ const MediaCapture = ({ type, onCapture }) => {
       stream.getTracks().forEach(track => track.stop());
       setStream(null);
     }
+    setIsReady(false);
   };
 
   const startRecording = () => {
@@ -69,19 +73,27 @@ const MediaCapture = ({ type, onCapture }) => {
   };
 
   const capturePhoto = () => {
-    if (!videoRef.current) return;
+    if (!videoRef.current || !isReady || videoRef.current.videoWidth === 0) {
+      alert('Camera initializing... please wait 1-2 seconds.');
+      return;
+    }
+
     const canvas = document.createElement('canvas');
-    canvas.width = videoRef.current.videoWidth;
-    canvas.height = videoRef.current.videoHeight;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(videoRef.current, 0, 0);
+    // Scale down for storage efficiency and to avoid "corruption" from huge strings
+    const MAX_WIDTH = 1024;
+    const scale = Math.min(1, MAX_WIDTH / videoRef.current.videoWidth);
+    canvas.width = videoRef.current.videoWidth * scale;
+    canvas.height = videoRef.current.videoHeight * scale;
     
-    const dataUrl = canvas.toDataURL('image/png');
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+    
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.8); // Use JPEG for better compression
     onCapture({
       id: crypto.randomUUID(),
-      name: `photo-${Date.now()}.png`,
+      name: `photo-${Date.now()}.jpg`,
       data: dataUrl,
-      type: 'image/png'
+      type: 'image/jpeg'
     });
     stopStream();
   };
@@ -106,26 +118,34 @@ const MediaCapture = ({ type, onCapture }) => {
     <div className="media-manager">
       <div className="capture-container">
         {type !== 'audio' && stream && (
-          <video ref={videoRef} className="video-preview" autoPlay muted playsInline />
+          <video 
+            ref={videoRef} 
+            className="video-preview" 
+            autoPlay 
+            muted 
+            playsInline 
+            onLoadedMetadata={() => setIsReady(true)}
+            onCanPlay={() => setIsReady(true)}
+          />
         )}
         
         <div className="header-actions">
           {!stream ? (
-            <button className="btn btn-primary" onClick={startStream}>
+            <button type="button" className="btn btn-primary" onClick={startStream}>
               {type === 'photo' ? 'Open Camera' : `Access ${type === 'video' ? 'Camera' : 'Mic'}`}
             </button>
           ) : (
             <>
               {type === 'photo' ? (
-                <button className="btn btn-primary" onClick={capturePhoto}>📸 Capture Photo</button>
+                <button type="button" className="btn btn-primary" onClick={capturePhoto}>📸 Capture Photo</button>
               ) : (
                 !isRecording ? (
-                  <button className="btn btn-primary" onClick={startRecording}>🔴 Start Recording</button>
+                  <button type="button" className="btn btn-primary" onClick={startRecording}>🔴 Start Recording</button>
                 ) : (
-                  <button className="btn btn-danger" onClick={stopRecording}>⬛ Stop Recording</button>
+                  <button type="button" className="btn btn-danger" onClick={stopRecording}>⬛ Stop Recording</button>
                 )
               )}
-              <button className="btn btn-secondary" onClick={stopStream}>Cancel</button>
+              <button type="button" className="btn btn-secondary" onClick={stopStream}>Cancel</button>
             </>
           )}
         </div>
