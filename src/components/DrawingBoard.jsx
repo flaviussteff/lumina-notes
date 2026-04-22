@@ -15,7 +15,7 @@ const DrawingBoard = ({ onSave }) => {
 
     // Fixed height for simplicity
     const width = canvas.offsetWidth;
-    const height = 400; 
+    const height = 400;
     canvas.width = width * 2;
     canvas.height = height * 2;
     canvas.style.width = '100%';
@@ -74,7 +74,7 @@ const DrawingBoard = ({ onSave }) => {
   const handleExport = () => {
     setIsExporting(true);
     const canvas = canvasRef.current;
-    
+
     const dataUrl = canvas.toDataURL('image/png');
     onSave({
       id: crypto.randomUUID ? crypto.randomUUID() : `draw-${Date.now()}`,
@@ -90,14 +90,14 @@ const DrawingBoard = ({ onSave }) => {
     <div className="simple-drawing-board">
       <div className="drawing-toolbar-minimal">
         <div className="tool-toggle">
-          <button 
+          <button
             type="button"
-            className={`tool-btn ${tool === 'pen' ? 'active' : ''}`} 
+            className={`tool-btn ${tool === 'pen' ? 'active' : ''}`}
             onClick={() => setTool('pen')}
           >✏️ Pen</button>
-          <button 
+          <button
             type="button"
-            className={`tool-btn ${tool === 'eraser' ? 'active' : ''}`} 
+            className={`tool-btn ${tool === 'eraser' ? 'active' : ''}`}
             onClick={() => setTool('eraser')}
           >🧽 Eraser</button>
         </div>
@@ -114,18 +114,18 @@ const DrawingBoard = ({ onSave }) => {
 
         <button type="button" className="btn btn-secondary" onClick={handleClear}>Clear</button>
 
-        <button 
-          type="button" 
+        <button
+          type="button"
           className={`btn ${isExporting ? 'btn-success' : 'btn-primary'}`}
           onClick={handleExport}
-          style={{marginLeft: 'auto'}}
+          style={{ marginLeft: 'auto' }}
           disabled={isExporting}
         >
           {isExporting ? '✔️ Saving...' : 'Save Note'}
         </button>
       </div>
 
-      <div className="canvas-wrapper">
+      <div className="canvas-wrapper" style={{ touchAction: 'none' }}>
         <canvas
           ref={canvasRef}
           onMouseDown={start}
