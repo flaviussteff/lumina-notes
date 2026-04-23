@@ -144,17 +144,11 @@ export const StorageService = {
     
     if (toMerge.length < 2) return false;
 
-    // Concatenate descriptions with distinct headers
-    const descriptions = toMerge
-      .map(n => n.description ? `[${n.title}]: ${n.description}` : null)
-      .filter(Boolean)
-      .join('\n---\n');
+    // Simple concatenation on new lines
+    const descriptions = toMerge.map(n => n.description).filter(Boolean).join('\n');
     
-    // Concatenate text content with distinct headers
-    const contents = toMerge
-      .map(n => n.content ? `### From "${n.title}":\n${n.content}` : null)
-      .filter(Boolean)
-      .join('\n\n---\n\n');
+    // Simple concatenation on new lines
+    const contents = toMerge.map(n => n.content).filter(Boolean).join('\n\n');
     
     // Combine items and attachments
     const allItems = toMerge.flatMap(n => n.items || []);
