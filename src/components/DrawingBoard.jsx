@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 
-const DrawingBoard = ({ onSave }) => {
+const DrawingBoard = ({ onSave, initialData, initialId, initialName }) => {
   const canvasRef = useRef(null);
   const contextRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -13,7 +13,6 @@ const DrawingBoard = ({ onSave }) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // Fixed height for simplicity
     const width = canvas.offsetWidth;
     const height = 400;
     canvas.width = width * 2;
@@ -25,10 +24,21 @@ const DrawingBoard = ({ onSave }) => {
     ctx.scale(2, 2);
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
+    
+    // Clear with white first
     ctx.fillStyle = 'white';
     ctx.fillRect(0, 0, width, height);
+
+    if (initialData) {
+      const img = new Image();
+      img.onload = () => {
+        ctx.drawImage(img, 0, 0, width, height);
+      };
+      img.src = initialData;
+    }
+    
     contextRef.current = ctx;
-  }, []);
+  }, [initialData]);
 
   const getPos = (e) => {
     const canvas = canvasRef.current;
@@ -74,13 +84,27 @@ const DrawingBoard = ({ onSave }) => {
   const handleExport = () => {
     setIsExporting(true);
     const canvas = canvasRef.current;
+    
+    // Create a temporary canvas for scaling
+    const exportCanvas = document.createElement('canvas');
+    const MAX_WIDTH = 1024;
+    const scale = Math.min(1, MAX_WIDTH / canvas.width);
+    
+    exportCanvas.width = canvas.width * scale;
+    exportCanvas.height = canvas.height * scale;
+    
+    const ctx = exportCanvas.getContext('2d');
+    // Fill background with white (since we're using JPEG)
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+    ctx.drawImage(canvas, 0, 0, exportCanvas.width, exportCanvas.height);
 
-    const dataUrl = canvas.toDataURL('image/png');
+    const dataUrl = exportCanvas.toDataURL('image/jpeg', 0.8);
     onSave({
-      id: crypto.randomUUID ? crypto.randomUUID() : `draw-${Date.now()}`,
-      name: `drawing-${Date.now()}.png`,
+      id: initialId || (crypto.randomUUID ? crypto.randomUUID() : `draw-${Date.now()}`),
+      name: initialName || `drawing-${Date.now()}.jpg`,
       data: dataUrl,
-      type: 'image/png'
+      type: 'image/jpeg'
     });
 
     setTimeout(() => setIsExporting(false), 800);
@@ -121,7 +145,7 @@ const DrawingBoard = ({ onSave }) => {
           style={{ marginLeft: 'auto' }}
           disabled={isExporting}
         >
-          {isExporting ? '✔️ Saving...' : 'Save Note'}
+          {isExporting ? '✔️ Applying...' : 'Done Drawing'}
         </button>
       </div>
 

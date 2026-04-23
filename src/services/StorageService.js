@@ -135,44 +135,78 @@ export const StorageService = {
   },
 
   /**
-   * Task 3: Import notes with collision detection
-   * Returns a summary of the results.
+   * Task 7: Merge multiple notes into one
    */
+  async mergeNotes(ids, newTitle) {
+    await this._delay();
+    const allNotes = this._getAll();
+    const toMerge = allNotes.filter(n => ids.includes(n.id));
+    
+    if (toMerge.length < 2) return false;
+
+    // Concatenate descriptions with distinct headers
+    const descriptions = toMerge
+      .map(n => n.description ? `[${n.title}]: ${n.description}` : null)
+      .filter(Boolean)
+      .join('\n---\n');
+    
+    // Concatenate text content with distinct headers
+    const contents = toMerge
+      .map(n => n.content ? `### From "${n.title}":\n${n.content}` : null)
+      .filter(Boolean)
+      .join('\n\n---\n\n');
+    
+    // Combine items and attachments
+    const allItems = toMerge.flatMap(n => n.items || []);
+    const allAttachments = toMerge.flatMap(n => n.attachments || []);
+
+    const mergedNote = {
+      id: (crypto && crypto.randomUUID) ? crypto.randomUUID() : `note-merged-${Date.now()}`,
+      title: newTitle,
+      description: descriptions,
+      content: contents,
+      items: allItems,
+      attachments: allAttachments,
+      type: 'mixed',
+      createdAt: new Date().toISOString(),
+      modifiedAt: new Date().toISOString()
+    };
+
+    const remainingNotes = allNotes.filter(n => !ids.includes(n.id));
+    remainingNotes.unshift(mergedNote);
+    this._saveAll(remainingNotes);
+    return mergedNote;
+  },
+
   async importNotes(importedNotes) {
     await this._delay();
     const localNotes = this._getAll();
     const summary = { imported: 0, updated: 0, skipped: 0 };
 
-    const forceUUID = () => (crypto && crypto.randomUUID) ? crypto.randomUUID() : `note-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
     importedNotes.forEach(impNote => {
-      // Unified match logic: Match by ID first, then by Title + Type
       const existingById = localNotes.find(n => n.id === impNote.id);
       const existingByTitle = localNotes.find(n => n.title === impNote.title && n.type === impNote.type);
       const match = existingById || existingByTitle;
 
       if (match) {
-        // Any difference in title or content counts as an update
         const hasChanges = 
           match.title !== impNote.title ||
           match.description !== impNote.description ||
+          match.content !== impNote.content ||
           JSON.stringify(match.items) !== JSON.stringify(impNote.items) ||
           JSON.stringify(match.attachments) !== JSON.stringify(impNote.attachments);
         
         const isNewer = new Date(impNote.modifiedAt || 0).getTime() > new Date(match.modifiedAt || 0).getTime();
 
         if (hasChanges || isNewer) {
-          // Preserve the original local ID if we matched by Title only
           const targetId = match.id;
           Object.assign(match, impNote);
           if (!existingById) match.id = targetId;
-          
           summary.updated++;
         } else {
           summary.skipped++;
         }
       } else {
-        // Truly New
         localNotes.unshift({ ...impNote });
         summary.imported++;
       }

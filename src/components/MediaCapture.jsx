@@ -92,6 +92,18 @@ const MediaCapture = ({ type, onCapture }) => {
 
       recorder.onstop = () => {
         setIsProcessing(true);
+        
+        // Capture a thumbnail from the video stream if it's a video
+        let thumbnail = null;
+        if (type === 'video' && videoRef.current) {
+          const canvas = document.createElement('canvas');
+          canvas.width = videoRef.current.videoWidth / 4; // Smaller for thumbnail
+          canvas.height = videoRef.current.videoHeight / 4;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+          thumbnail = canvas.toDataURL('image/jpeg', 0.7);
+        }
+
         const blob = new Blob(chunksRef.current, { type: selectedMime });
         const reader = new FileReader();
         reader.onloadend = () => {
@@ -99,7 +111,8 @@ const MediaCapture = ({ type, onCapture }) => {
             id: crypto.randomUUID ? crypto.randomUUID() : `rec-${Date.now()}`,
             name: `${type}-${Date.now()}.${selectedMime.includes('mp4') ? 'mp4' : 'webm'}`,
             data: reader.result,
-            type: selectedMime
+            type: selectedMime,
+            thumbnail: thumbnail
           });
           setIsProcessing(false);
         };

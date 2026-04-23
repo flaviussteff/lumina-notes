@@ -21,9 +21,9 @@ function App() {
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingNote, setEditingNote] = useState(null);
-  const [newNoteType, setNewNoteType] = useState('text');
+  const [newNoteType, setNewNoteType] = useState('mixed');
 
-  // Selection State (Task 3)
+  // Selection State
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
 
@@ -52,7 +52,6 @@ function App() {
     fetchNotes();
   }, [fetchNotes]);
 
-  // Reset page when filters change
   useEffect(() => {
     setPage(1);
   }, [search, filterType, sortBy, sortOrder]);
@@ -69,11 +68,7 @@ function App() {
       return;
     }
     setEditingNote(note);
-    setIsModalOpen(false); // Close first just in case
-    setTimeout(() => {
-      setEditingNote(note);
-      setIsModalOpen(true);
-    }, 0);
+    setIsModalOpen(true);
   };
 
   const handleDeleteNote = async (id) => {
@@ -92,14 +87,13 @@ function App() {
     } catch (error) {
       console.error('Failed to save note:', error);
       if (error.name === 'QuotaExceededError' || error.message.includes('quota')) {
-        alert('Storage is full! Your video recording might be too large for the browser (5MB limit). Try deleting some old notes or recording a shorter video.');
+        alert('Storage full! Please delete some notes or large attachments (drawings/photos) to save more.');
       } else {
-        alert('An unexpected error occurred while saving. Please try again.');
+        alert('Failed to save note. Please check your data.');
       }
     }
   };
 
-  // Task 3: Selection Handlers
   const toggleSelectNote = (id) => {
     setSelectedIds(prev => 
       prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
@@ -114,55 +108,59 @@ function App() {
     }
   };
 
-  const handleCancelSelection = () => {
-    setIsSelectionMode(false);
-    setSelectedIds([]);
+  const handleMergeSelected = async () => {
+    if (selectedIds.length < 2) {
+      alert('Please select at least 2 notes to merge.');
+      return;
+    }
+
+    const newTitle = window.prompt('Enter a title for the combined note:', 'Merged Note');
+    if (newTitle === null) return; // Cancelled
+
+    try {
+      await StorageService.mergeNotes(selectedIds, newTitle || 'Merged Note');
+      setIsSelectionMode(false);
+      setSelectedIds([]);
+      fetchNotes();
+      alert('Notes merged successfully!');
+    } catch (err) {
+      console.error('Merge failed:', err);
+      alert('Failed to merge notes.');
+    }
   };
 
   const handleExportSelected = async () => {
-    if (selectedIds.length === 0) {
-      alert('Please select at least one note to export.');
-      return;
-    }
-    
+    if (selectedIds.length === 0) return;
     const data = await StorageService.exportNotes(selectedIds);
-    const jsonString = JSON.stringify(data, null, 2);
-    const blob = new Blob([jsonString], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
-    
     const link = document.createElement('a');
     link.href = url;
-    link.download = `lumina_notes_export_${new Date().toISOString().split('T')[0]}.json`;
+    link.download = `lumina_export_${new Date().toISOString().split('T')[0]}.json`;
     link.click();
-    
-    URL.revokeObjectURL(url);
     setIsSelectionMode(false);
     setSelectedIds([]);
   };
 
-  const handleImportFile = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
 
+  const handleImport = async (file) => {
     const reader = new FileReader();
-    reader.onload = async (event) => {
+    reader.onload = async (e) => {
       try {
-        const importedData = JSON.parse(event.target.result);
+        const importedData = JSON.parse(e.target.result);
         if (!Array.isArray(importedData)) {
           alert('Invalid export file format.');
           return;
         }
-        
         const summary = await StorageService.importNotes(importedData);
-        alert(`Import Complete!\n- New: ${summary.imported}\n- Updated: ${summary.updated}\n- Skipped: ${summary.skipped}`);
+        alert(`Import Complete!\nNew: ${summary.imported}\nUpdated: ${summary.updated}\nSkipped: ${summary.skipped}`);
         fetchNotes();
       } catch (err) {
         console.error('Import failed:', err);
-        alert('Failed to parse the import file. Make sure it is a valid Lumina Notes export.');
+        alert('Failed to import notes. Check if the file is a valid JSON export.');
       }
     };
     reader.readAsText(file);
-    e.target.value = ''; // Reset input
   };
 
   return (
@@ -172,8 +170,9 @@ function App() {
         isSelectionMode={isSelectionMode}
         setIsSelectionMode={setIsSelectionMode}
         onExportSelected={handleExportSelected}
-        onImportFile={handleImportFile}
         onSelectAll={handleSelectAll}
+        onMergeSelected={handleMergeSelected}
+        onImport={handleImport}
         selectedCount={selectedIds.length}
       />
       
@@ -197,17 +196,11 @@ function App() {
       {totalCount > notes.length && (
         <div className="load-more-container">
           <p className="text-muted">Showing {notes.length} of {totalCount} notes</p>
-          {/* Pagination could go here if needed, but per-page limit is active */}
-          {page * limit < totalCount && (
-            <button className="btn btn-secondary" onClick={() => setPage(p => p + 1)}>
-              Next Page
-            </button>
-          )}
-          {page > 1 && (
-            <button className="btn btn-secondary" onClick={() => setPage(p => p - 1)} style={{marginLeft: '10px'}}>
-              Previous Page
-            </button>
-          )}
+          <div className="pagination-controls">
+            {page > 1 && <button className="btn btn-secondary" onClick={() => setPage(p => p - 1)}>Prev</button>}
+            <span className="page-info">Page {page}</span>
+            {page * limit < totalCount && <button className="btn btn-secondary" onClick={() => setPage(p => p + 1)}>Next</button>}
+          </div>
         </div>
       )}
 

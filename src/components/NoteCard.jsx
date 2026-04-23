@@ -19,59 +19,32 @@ const NoteCard = ({ note, onEdit, onDelete, isSelectionMode, isSelected, onToggl
     }
   };
 
-  const renderPreview = () => {
-    if (note.type === 'text') {
-      return <p>{note.content || 'No content...'}</p>;
-    }
-    
-    if (note.type === 'checkbox') {
-      return (
-        <div className="note-checkbox-list">
-          {(note.items || []).slice(0, 3).map((item, index) => (
-            <div key={index} className={`note-checkbox-item ${item.checked ? 'checked' : ''}`}>
-              <span>{item.checked ? '☑' : '☐'}</span>
-              <span>{item.text}</span>
-            </div>
-          ))}
-          {note.items && note.items.length > 3 && (
-            <div className="note-checkbox-item" style={{ fontSize: '0.8rem', opacity: 0.5 }}>
-              +{note.items.length - 3} more items
-            </div>
-          )}
-        </div>
-      );
-    }
+  const renderAttachments = () => {
+    if (!note.attachments || note.attachments.length === 0) return null;
 
-    // Media and Drawing Previews
-    const hasAttachments = ['audio', 'video', 'photo', 'drawing'].includes(note.type) && note.attachments?.length > 0;
-    
-    if (hasAttachments) {
-      const typeCount = note.attachments.length;
-      const typeLabel = note.type === 'drawing' ? 'Drawing' : note.type.charAt(0).toUpperCase() + note.type.slice(1);
-      
-      return (
-        <div className="note-media-preview">
-          <div className="note-attachment-grid">
-            {note.attachments.slice(0, 2).map((att, i) => (
-              <div key={i} className="mini-preview">
-                {note.type === 'audio' ? '🎵' : 
-                 note.type === 'video' ? '🎥' : 
-                 note.type === 'drawing' ? <img src={att.data} alt="thumb" /> :
-                 <img src={att.data} alt="thumb" />}
+    return (
+      <div className="note-attachments-preview">
+        <div className="attachment-grid-compact">
+          {note.attachments.map((att, i) => {
+            const isImage = att.type === 'drawing' || att.type === 'photo' || att.type.startsWith('image/');
+            const isVideo = att.type === 'video' || att.type.startsWith('video/');
+            const isAudio = att.type === 'audio' || att.type.startsWith('audio/');
+            
+            return (
+              <div key={att.id || i} className="attachment-item-mini">
+                {isImage ? (
+                  <img src={att.data} alt="preview" />
+                ) : isVideo ? (
+                  att.thumbnail ? <img src={att.thumbnail} alt="video thumb" /> : <div className="media-placeholder">🎥</div>
+                ) : (
+                  <div className="media-placeholder">🎵</div>
+                )}
               </div>
-            ))}
-            {typeCount > 2 && <div className="mini-preview-more">+{typeCount - 2}</div>}
-          </div>
-          
-          <div className="note-description-summary">
-            <span className="attachment-count-tag">{typeCount} {typeLabel}{typeCount > 1 ? 's' : ''}</span>
-            {note.description && <p className="description-text">{note.description}</p>}
-          </div>
+            );
+          })}
         </div>
-      );
-    }
-
-    return note.description ? <p>{note.description}</p> : <p className="text-muted">No content...</p>;
+      </div>
+    );
   };
 
   return (
@@ -84,22 +57,38 @@ const NoteCard = ({ note, onEdit, onDelete, isSelectionMode, isSelected, onToggl
       
       <div className="note-header">
         <h3 className="note-title">{note.title || 'Untitled'}</h3>
-        <span className="note-type-badge">{note.type}</span>
+        <span className="note-type-badge">{note.type === 'mixed' ? 'Mixed' : note.type}</span>
       </div>
 
       <div className="note-content-preview">
-        {renderPreview()}
+        {note.description && <p className="description-text-preview">{note.description}</p>}
+        {note.content && <p className="content-text-preview">{note.content.substring(0, 100)}{note.content.length > 100 ? '...' : ''}</p>}
+        
+        {note.items && note.items.length > 0 && (
+          <div className="note-checkbox-list">
+            {note.items.slice(0, 3).map((item, index) => (
+              <div key={index} className={`note-checkbox-item ${item.checked ? 'checked' : ''}`}>
+                <span>{item.checked ? '☑' : '☐'}</span>
+                <span>{item.text}</span>
+              </div>
+            ))}
+            {note.items.length > 3 && (
+              <div className="more-items">+{note.items.length - 3} more</div>
+            )}
+          </div>
+        )}
+
+        {renderAttachments()}
       </div>
 
       <div className="note-footer">
         <div className="note-metadata">
-          <p>Created: {formatDate(note.createdAt)}</p>
           <p>Modified: {formatDate(note.modifiedAt)}</p>
         </div>
         {!isSelectionMode && (
           <div className="note-actions">
             <button 
-              className="btn-danger" 
+              className="btn-danger btn-sm" 
               onClick={(e) => {
                 e.stopPropagation();
                 onDelete(note.id);
